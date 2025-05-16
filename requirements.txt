@@ -14,3 +14,4 @@ torchcam
 keras
 tensorflow
 scikit-image
+plotly>=5.20
