@@ -245,6 +245,10 @@ with st.sidebar:
     }
     tasks_to_run = TASKS_MAP[task_choice]
 
+    # Add information about age prediction using ensemble
+    if "age" in tasks_to_run:
+        st.info("ℹ️ Age prediction uses an ensemble model (50% LightGBM + 50% k-NN) for optimal accuracy.")
+
     # Display algorithm compatibility information based on task
     st.markdown("### Algorithm Selection")
 
@@ -264,6 +268,14 @@ with st.sidebar:
             f"<div><b>{algo}</b>: <span class='badge badge-{badge_class}'>{badge_text}</span></div>",
             unsafe_allow_html=True
         )
+
+        # Add note about algorithm and age prediction
+        if algo == "LightGBM" and "age" in tasks_to_run:
+            st.markdown(
+                "<div style='font-size: 0.8rem; margin-left: 15px; margin-bottom: 10px; color: #5c5c5c;'>"
+                "When predicting age, this uses an ensemble with k-NN</div>",
+                unsafe_allow_html=True
+            )
 
     # Algorithm family selection → must match keys in model_bundle.pkl
     model_choice = st.radio(
@@ -306,46 +318,129 @@ with st.sidebar:
 
     # Model information
     if model_available:
-        with st.expander("Model Information"):
-            try:
-                bundle = _load_bundle()
+        with st.expander("Model Information", expanded=False):
+            bundle = _load_bundle()  # ← your helper
+            disease_list = _labels("disease", bundle)
+            variety_list = _labels("variety", bundle)
+            algo_caps = {
+                "LightGBM": "All tasks (disease, variety, age)",
+                "RandomForest": "Disease, variety only",
+                "k-NN": "All tasks"
+            }
 
-                # Get available labels for disease and variety
-                disease_classes = ", ".join(_labels("disease", bundle))
-                variety_classes = ", ".join(_labels("variety", bundle))
+            # ---------- INLINE-STYLE CARD ----------
+            st.markdown("""
+            <style>
+                .model-card{
+                    background:#212328;            /* dark card bg */
+                    border:1px solid #383c44;
+                    border-radius:8px;
+                    padding:18px 22px;
+                    font-size:0.9rem;
+                    line-height:1.45;
+                    color:#E6E6E6;                 /* light grey text */
+                }
+                .model-card h4{
+                    margin:0 0 6px 0;
+                    font-size:1.05rem;
+                    color:#F7F7F7;                 /* almost white headings */
+                }
+                .model-card ul{margin:4px 0 12px 18px;padding:0}
+                .model-card li{margin-bottom:2px}
+                .model-card li{margin-bottom:2px}
+                .model-card code{color:#FFD95E}
+                .highlight-note{
+                    background:#345732;
+                    border-radius:4px;
+                    padding:8px 12px;
+                    margin-top:10px;
+                    border-left:3px solid #7CB342;
+                }
+            </style>
+            """, unsafe_allow_html=True)
 
-                st.markdown(f"""
-                <div class="model-info">
-                <strong>Model Bundle:</strong> full_model_bundle.pkl<br>
-                <strong>Disease Classes:</strong> {disease_classes}<br>
-                <strong>Variety Classes:</strong> {variety_classes}<br>
-                <strong>Available Algorithms:</strong> {", ".join(available_algos)}<br>
-                <strong>Algorithm Capabilities:</strong><br>
-                - LightGBM: All tasks (disease, variety, age)<br>
-                - RandomForest: Disease, variety only<br>
-                - k-NN: All tasks
-                </div>
-                """, unsafe_allow_html=True)
-            except Exception as e:
-                st.error(f"Error loading model info: {str(e)}")
+            st.markdown(f"""
+            <div class="model-card">
+              <h4>Model&nbsp;Bundle</h4>
+              <code>full_model_bundle.pkl</code>
+
+              <h4>Disease&nbsp;Classes</h4>
+              <ul> {"".join(f"<li>{cls}</li>" for cls in disease_list)} </ul>
+
+              <h4>Variety&nbsp;Classes</h4>
+              <ul> {"".join(f"<li>{cls}</li>" for cls in variety_list)} </ul>
+
+              <h4>Available&nbsp;Algorithms</h4>
+              <ul> {"".join(f"<li>{algo}</li>" for algo in algo_caps.keys())} </ul>
+
+              <h4>Algorithm&nbsp;Capabilities</h4>
+              <ul>
+                {"".join(f"<li><strong>{a}</strong>: {cap}</li>" for a, cap in algo_caps.items())}
+              </ul>
+
+              <div class="highlight-note">
+                <strong>Note:</strong> Age prediction uses an ensemble model that combines 50% LightGBM + 50% k-NN 
+                for optimal accuracy (R² 0.834, MAE 2.18, RMSE 3.62).
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # Help
-    with st.expander("Need Help?"):
-        st.markdown(
-            """
-            **Usage steps**
-            1. Upload paddy leaf images (JPG/PNG).  
-            2. Select task(s) to analyze.  
-            3. Select a compatible algorithm. Note that:
-               - LightGBM supports all tasks
-               - Random Forest supports disease and variety only
-               - k-NN supports all tasks
-            4. Click **Run Analysis**.  
-            5. Inspect & download results.
+    with st.expander("Need Help?", expanded=False):
+        # ---------- lightweight styling ----------
+        st.markdown("""
+        <style>
+          .help-box{
+            background:#212328;
+            border:1px solid #444851;
+            border-radius:8px;
+            padding:18px 20px;
+            color:#E8E9EB;
+            font-size:0.9rem;
+            line-height:1.5;
+          }
+          .help-box h4{
+            margin:0 0 10px 0;
+            font-size:1.05rem;
+            color:#F7F7F7;
+          }
+          .help-box ul{margin:0 0 12px 22px;padding-left:0}
+          .help-box li{margin-bottom:6px}
+          .help-box code{color:#FFD95E}
+          .help-note{
+            background:#2E3B2D;
+            border-radius:4px;
+            padding:6px 10px;
+            margin-top:10px;
+            font-size:0.85rem;
+            border-left:3px solid #4CAF50;
+          }
+        </style>
+        """, unsafe_allow_html=True)
 
-            Contact: support@paddypredictor.com
-            """
-        )
+        st.markdown("""
+        <div class="help-box">
+          <h4>Quick&nbsp;Guide</h4>
+          <ul>
+            <li><strong>Step&nbsp;1&nbsp;— Upload&nbsp;images:</strong> <em>JPEG / PNG of paddy leaves</em></li>
+            <li><strong>Step&nbsp;2&nbsp;— Choose&nbsp;task(s):</strong> <code>Disease</code>, <code>Variety</code>, <code>Age</code></li>
+            <li><strong>Step&nbsp;3&nbsp;— Pick&nbsp;algorithm:</strong>
+              <ul>
+                <li>LightGBM <em>(all tasks)</em></li>
+                <li>Random&nbsp;Forest <em>(disease &amp; variety)</em></li>
+                <li>k-NN <em>(all tasks)</em></li>
+              </ul>
+            </li>
+            <li><strong>Step&nbsp;4&nbsp;— Run&nbsp;Analysis</strong></li>
+            <li><strong>Step&nbsp;5&nbsp;— Download&nbsp;results</strong></li>
+          </ul>
+
+          <div class="help-note">
+            <strong>Note:</strong> When predicting leaf age, the system automatically uses an ensemble model 
+            (combining LightGBM and k-NN) for optimal accuracy, regardless of algorithm selection.
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # -------------------------------------------------- #
 # File uploader
@@ -354,7 +449,7 @@ st.subheader("1. Upload Images")
 uploader_cols = st.columns([3, 1])
 with uploader_cols[0]:
     uploaded_files = st.file_uploader(
-        f"Upload up to {batch_size} images (≤ 10 MB each)",
+        f"Upload up to {batch_size} images (≤ 200 MB each)",
         type=["jpg", "jpeg", "png"],
         accept_multiple_files=True,
     )
@@ -565,32 +660,41 @@ if st.session_state.results:
 
     # --- tab1: table + downloads
     with tabs[0]:
+        # ---------- table preview ----------
         view_df = df.copy()
+
         if "disease_conf" in view_df.columns:
-            view_df["disease_confidence"] = view_df["disease_conf"].apply(lambda x: f"{x:.1%}")
-            view_df = view_df.drop("disease_conf", axis=1)
+            view_df["Disease Confidence (%)"] = (view_df["disease_conf"] * 100).round(1)
+            view_df.drop(columns="disease_conf", inplace=True)
+
         if "variety_conf" in view_df.columns:
-            view_df["variety_confidence"] = view_df["variety_conf"].apply(lambda x: f"{x:.1%}")
-            view_df = view_df.drop("variety_conf", axis=1)
+            view_df["Variety Confidence (%)"] = (view_df["variety_conf"] * 100).round(1)
+            view_df.drop(columns="variety_conf", inplace=True)
 
-        st.dataframe(view_df, use_container_width=True)
+        st.dataframe(view_df, use_container_width=True, hide_index=True)
 
-        d1, d2 = st.columns(2)
-        with d1:
+        # ---------- download buttons ----------
+        col_csv, col_xlsx = st.columns(2)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        with col_csv:
             st.download_button(
                 "📥 Download CSV",
-                df.to_csv(index=False).encode(),
-                f"paddy_results_{datetime.now():%Y%m%d_%H%M%S}.csv",
+                view_df.to_csv(index=False).encode(),
+                f"paddy_results_{ts}.csv",
                 "text/csv",
+                use_container_width=True
             )
-        with d2:
-            xls_buf = BytesIO()
-            df.to_excel(xls_buf, index=False)
+
+        with col_xlsx:
+            buf = BytesIO()
+            view_df.to_excel(buf, index=False, sheet_name="results")
             st.download_button(
                 "📊 Download Excel",
-                xls_buf.getvalue(),
-                f"paddy_results_{datetime.now():%Y%m%d_%H%M%S}.xlsx",
-                "application/vnd.ms-excel",
+                buf.getvalue(),
+                f"paddy_results_{ts}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
             )
 
     # --- tab2: charts
@@ -789,24 +893,34 @@ st.markdown("---")
 info_cols = st.columns(2)
 
 with info_cols[0]:
-    with st.expander("Model information"):
+    with st.expander("Model information", expanded=False):
         st.markdown(
             """
-            ### Algorithm architectures in this bundle
+            ### Algorithm architectures in this bundle  
 
-            **Feature-based models:**
-            - **LightGBM** – gradient‑boosted decision trees; strong baseline across all tasks.  
-            - **Random Forest** – ensemble of trees; good interpretability.  
-            - **k‑NN** – tuned for age estimation; offers non‑parametric regression.
+            **Tree-based models**  
+            • **LightGBM (tuned)** – gradient-boosted decision trees; best overall performance. 
+             
+            • **Random Forest (feature-reduced & tuned)** – bagging trees; fast and interpretable.  
 
-            ### Validation snapshot  
+            **Distance-based model**  
+            • **k-Nearest Neighbours (tuned)** – non-parametric; paired with LightGBM for age regression.  
 
-            | Task    | Metric | LightGBM | Random Forest | k‑NN |
-            |---------|--------|----------|---------------|------|
-            | Disease | F1     | 0.89     | 0.91          | —    |
-            | Variety | Acc    | 0.87     | 0.85          | —    |
-            | Age     | RMSE(d)| 3.2      | 3.8           | 2.9  |
-            """
+            ### Validation snapshot (20 % stratified hold-out)
+
+            | Task | Metric | LightGBM | Random Forest | k-NN | Ensemble* |
+            |------|--------|:-------:|:------------:|:---:|:--------:|
+            | **Disease** | Accuracy | **0.921** | 0.909 | — | — |
+            |              | Macro F1 | **0.912** | 0.897 | — | — |
+            | **Variety** | Accuracy | **0.977** | 0.944 | — | — |
+            |              | Macro F1 | **0.916** | 0.829 | — | — |
+            | **Age** | R² | 0.813 | 0.801 | 0.806 | **0.834** |
+            |          | MAE | 2.55 | 2.56 | **1.99** | 2.18 |
+            |          | RMSE | 3.85 | 3.97 | 3.92 | **3.62** |
+
+            *Ensemble = 50 % LightGBM + 50 % k-NN  
+            """,
+            unsafe_allow_html=True,
         )
 
 with info_cols[1]:
@@ -834,12 +948,27 @@ with info_cols[1]:
         )
 
 # Footer
-st.markdown(
-    """
-    <div class="footer">
-        🌾 Paddy Predictor v1.0 | Made with ❤️ from [RMIT 2024 S3] COSC 2752 | COSC 2812 - S2_G4 Group Members| 
-        <a href="s3927181@rmit.edu.vn" style="color:#fff;">Contact Support</a>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# ---------- FOOTER (clean, centred, dark-theme friendly) ----------
+st.markdown("""
+<style>
+  .footer{
+      margin-top:32px;
+      padding:14px 0;
+      text-align:center;
+      font-size:0.82rem;
+      color:#BFC0C2;                 /* soft grey fits dark bg */
+  }
+  .footer strong{color:#E8E8E8;}
+  .footer a{
+      color:#FFD95E;                /* accent colour */
+      text-decoration:none;
+  }
+  .footer a:hover{ text-decoration:underline; }
+</style>
+
+<div class="footer">
+  🌾 <strong>Paddy&nbsp;Predictor&nbsp;v1.0</strong> &nbsp;|&nbsp;
+  Made&nbsp;with&nbsp;❤️ by <em>S2_G4&nbsp;— RMIT&nbsp;COSC&nbsp;2752/2812&nbsp;2024 S3</em> &nbsp;|&nbsp;
+  <a href="mailto:s3927181@rmit.edu.vn">Contact&nbsp;Support</a>
+</div>
+""", unsafe_allow_html=True)
